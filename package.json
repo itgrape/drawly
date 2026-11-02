@@ -1,0 +1,21 @@
+{
+  "name": "drawly",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c red,blue \"npm run dev --workspace @drawly/server\" \"npm run dev --workspace @drawly/web\"",
+    "dev:web": "npm run dev --workspace @drawly/web",
+    "dev:server": "npm run dev --workspace @drawly/server",
+    "start": "npm run start --workspace @drawly/server",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.5"
+  }
+}

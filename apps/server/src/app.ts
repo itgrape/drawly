@@ -1,8 +1,9 @@
 import cookie from '@fastify/cookie'
 import cors from '@fastify/cors'
+import fastifyStatic from '@fastify/static'
 import websocketPlugin from '@fastify/websocket'
 import fastify, { type FastifyRequest } from 'fastify'
-import { isAllowedOrigin } from './config/env'
+import { env, isAllowedOrigin } from './config/env'
 import { registerAssetRoutes } from './modules/assets/assets.routes'
 import { registerAuthRoutes } from './modules/auth/auth.routes'
 import { registerBoardRoutes } from './modules/boards/board.routes'
@@ -46,6 +47,18 @@ export async function createApp() {
   registerSyncRoutes(app)
   registerAssetRoutes(app)
   registerUnfurlRoutes(app)
+
+  if (env.webDirectory) {
+    await app.register(fastifyStatic, {
+      root: env.webDirectory,
+    })
+    app.setNotFoundHandler((request, reply) => {
+      if (request.method === 'GET' && request.headers.accept?.includes('text/html')) {
+        return reply.sendFile('index.html')
+      }
+      return reply.code(404).send({ error: 'Not found' })
+    })
+  }
 
   return app
 }

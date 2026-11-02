@@ -1,4 +1,4 @@
-import type { Board, BoardStatus } from '@drawly/shared/board'
+import type { Board, BoardListItem, BoardStatus } from '@drawly/shared/board'
 import { appDatabase } from '../../db/database'
 
 export interface BoardRow {
@@ -14,11 +14,63 @@ export interface BoardRow {
 
 export function listOwnedBoards(ownerId: string, status: BoardStatus) {
   const rows = appDatabase.prepare(
-    `SELECT * FROM boards
-     WHERE owner_id = ? AND status = ?
-     ORDER BY COALESCE(last_opened_at, updated_at) DESC, created_at DESC`
-  ).all(ownerId, status) as BoardRow[]
-  return rows.map(toBoard)
+    `SELECT boards.*, users.display_name AS owner_name FROM boards
+     INNER JOIN users ON users.id = boards.owner_id
+     WHERE boards.owner_id = ? AND boards.status = ?
+     ORDER BY COALESCE(boards.last_opened_at, boards.updated_at) DESC, boards.created_at DESC`
+  ).all(ownerId, status) as Array<BoardRow & { owner_name: string }>
+  return rows.map((row) => toBoardListItem(row, 'owner', row.owner_name, null))
+}
+
+interface RecentBoardRow extends BoardRow {
+  owner_name: string
+  access: 'owner' | 'view' | 'edit'
+  share_token: string | null
+  recent_opened_at: number
+}
+
+export function listRecentBoards(userId: string) {
+  const rows = appDatabase.prepare(
+    `SELECT boards.id, boards.owner_id, boards.title, boards.status,
+            boards.created_at, boards.updated_at,
+            board_recents.last_opened_at AS recent_opened_at,
+            board_recents.last_opened_at, boards.deleted_at,
+            owners.display_name AS owner_name,
+            CASE WHEN boards.owner_id = ? THEN 'owner' ELSE board_shares.permission END AS access,
+            CASE WHEN boards.owner_id = ? THEN NULL ELSE board_shares.token END AS share_token
+     FROM board_recents
+     INNER JOIN boards ON boards.id = board_recents.board_id
+     INNER JOIN users AS owners ON owners.id = boards.owner_id
+     LEFT JOIN board_shares
+       ON board_shares.id = board_recents.share_id
+      AND board_shares.board_id = boards.id
+      AND board_shares.revoked_at IS NULL
+     WHERE board_recents.user_id = ? AND boards.status = 'active'
+       AND (boards.owner_id = ? OR board_shares.id IS NOT NULL)
+     ORDER BY board_recents.last_opened_at DESC`
+  ).all(userId, userId, userId, userId) as RecentBoardRow[]
+
+  return rows.map((row) => toBoardListItem(
+    row,
+    row.access,
+    row.owner_name,
+    row.share_token
+  ))
+}
+
+export function recordRecentBoard(
+  userId: string,
+  boardId: string,
+  shareId: string | null,
+  now: number
+) {
+  appDatabase.prepare(
+    `INSERT INTO board_recents (user_id, board_id, share_id, last_opened_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(user_id, board_id) DO UPDATE SET
+       share_id = excluded.share_id,
+       last_opened_at = excluded.last_opened_at`
+  ).run(userId, boardId, shareId, now)
 }
 
 export function findOwnedBoardRow(ownerId: string, boardId: string) {
@@ -99,4 +151,13 @@ export function toBoard(row: BoardRow): Board {
     lastOpenedAt: row.last_opened_at,
     deletedAt: row.deleted_at,
   }
+}
+
+function toBoardListItem(
+  row: BoardRow,
+  access: BoardListItem['access'],
+  ownerName: string,
+  shareToken: string | null
+): BoardListItem {
+  return { ...toBoard(row), access, ownerName, shareToken }
 }

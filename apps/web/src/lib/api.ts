@@ -1,8 +1,10 @@
 import type { AuthErrorResponse } from '@drawly/shared/auth'
 
 export const serverUrl =
-  import.meta.env.VITE_SERVER_URL ??
-  `${window.location.protocol}//${window.location.hostname}:5858`
+  import.meta.env.VITE_SERVER_URL ||
+  (import.meta.env.DEV
+    ? `${window.location.protocol}//${window.location.hostname}:5858`
+    : window.location.origin)
 
 export async function apiRequest<T = unknown>(
   path: string,

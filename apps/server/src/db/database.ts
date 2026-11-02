@@ -62,4 +62,20 @@ appDatabase.exec(`
   CREATE INDEX IF NOT EXISTS board_shares_board_idx ON board_shares(board_id, revoked_at);
   CREATE UNIQUE INDEX IF NOT EXISTS board_shares_active_permission_idx
     ON board_shares(board_id, permission) WHERE revoked_at IS NULL;
+
+  CREATE TABLE IF NOT EXISTS board_recents (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    board_id TEXT NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+    share_id TEXT REFERENCES board_shares(id) ON DELETE SET NULL,
+    last_opened_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, board_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS board_recents_user_opened_idx
+    ON board_recents(user_id, last_opened_at DESC);
+
+  INSERT OR IGNORE INTO board_recents (user_id, board_id, share_id, last_opened_at)
+    SELECT owner_id, id, NULL, last_opened_at
+    FROM boards
+    WHERE last_opened_at IS NOT NULL;
 `)

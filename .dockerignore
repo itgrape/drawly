@@ -1,0 +1,9 @@
+.git
+.gitignore
+.data
+dist
+node_modules
+npm-debug.log*
+Makefile
+README.md
+doc

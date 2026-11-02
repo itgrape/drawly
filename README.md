@@ -55,6 +55,33 @@ http://localhost:5757/?room=team-one
 
 在两个浏览器窗口中打开同一房间即可测试多人协作。
 
+## 容器运行
+
+需要 Docker（也可通过 `CONTAINER_ENGINE=podman` 使用 Podman）：
+
+```bash
+make build     # 编译 drawly:latest 单体镜像
+make start     # 使用已有镜像启动服务
+make status    # 查看容器状态
+make logs      # 持续查看日志
+make restart   # 快速重启现有容器
+make stop      # 停止服务，保留数据
+```
+
+容器同时提供前端页面、API 和 WebSocket，只暴露一个端口。默认访问地址为
+http://localhost:8888，健康检查为 http://localhost:8888/health。
+端口或外部访问地址可在命令行覆盖：
+
+```bash
+make start \
+  APP_ENV=production \
+  PORT=8080 \
+  ORIGINS=https://draw.example.com
+```
+
+应用数据保存在 `drawly-data` 容器卷中；`make clean` 会保留该卷，
+`make prune` 会连同数据卷一起删除。
+
 ## 本地数据
 
 运行后数据保存在：

@@ -107,8 +107,7 @@ body {
   position: fixed;
   z-index: 999;
   bottom: 14px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 130px;
   padding: 5px 10px;
   border-radius: 999px;
   background: rgb(255 255 255 / 88%);
@@ -740,11 +739,37 @@ button {
   white-space: nowrap;
 }
 
-.board-card-content > p {
-  min-height: 16px;
-  margin: 6px 0 13px;
+.board-card-meta {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 5px 0 10px;
+}
+
+.board-card-meta p {
+  margin: 0;
   color: #8a93a5;
   font-size: 11px;
+}
+
+.board-access-label {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.board-access-view {
+  background: #edf0f6;
+  color: #667188;
+}
+
+.board-access-edit {
+  background: #e8f8ef;
+  color: #18794e;
 }
 
 .board-actions {

@@ -7,7 +7,9 @@ import {
   findOwnedActiveBoard,
   findOwnedBoardRow,
   insertBoard,
+  listRecentBoards,
   listOwnedBoards,
+  recordRecentBoard,
   renameOwnedActiveBoard,
   restoreOwnedBoard,
   softDeleteOwnedBoard,
@@ -23,6 +25,10 @@ export function registerBoardRoutes(app: FastifyInstance) {
     if (!user) return
     const requestedStatus = (request.query as { status?: string }).status
     const status: BoardStatus = requestedStatus === 'deleted' ? 'deleted' : 'active'
+    const scope = (request.query as { scope?: string }).scope
+    if (status === 'active' && scope === 'recent') {
+      return { boards: listRecentBoards(user.id) }
+    }
     return { boards: listOwnedBoards(user.id, status) }
   })
 
@@ -57,6 +63,7 @@ export function registerBoardRoutes(app: FastifyInstance) {
 
     const now = Date.now()
     touchOwnedActiveBoard(user.id, boardId, now)
+    recordRecentBoard(user.id, boardId, null, now)
     return { board: { ...board, lastOpenedAt: now } }
   })
 

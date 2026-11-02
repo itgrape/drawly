@@ -2,7 +2,7 @@ import type { SharePermission } from '@drawly/shared/share'
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { requireRequestUser } from '../auth/auth.session'
-import { findOwnedActiveBoard } from '../boards/board.repository'
+import { findOwnedActiveBoard, recordRecentBoard } from '../boards/board.repository'
 import { closeSessionsForShare } from '../sync/room.manager'
 import {
   findActiveShareAccess,
@@ -67,6 +67,12 @@ export function registerShareRoutes(app: FastifyInstance) {
     const token = (request.params as { token: string }).token
     const result = findActiveShareAccess(token)
     if (!result) return shareNotFound(reply)
+    recordRecentBoard(
+      user.id,
+      result.access.boardId,
+      user.id === result.ownerId ? null : result.shareId,
+      Date.now()
+    )
     return { access: result.access }
   })
 }

@@ -12,24 +12,31 @@ import {
   type MentionMember,
 } from '@tldraw/commenting'
 import { useSync } from '@tldraw/sync'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { type PointerEvent, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AssetRecordType,
   atom,
   commentSchemaRecords,
   computed,
   createUserId,
+  DefaultContextMenu,
+  DefaultContextMenuContent,
+  defineMessages,
+  type TLUiContextMenuProps,
   getHashForString,
   type TLAssetStore,
   type TLBookmarkAsset,
   Tldraw,
   EditorPortal,
+  TldrawUiMenuGroup,
+  TldrawUiMenuItem,
   type TLUserPreferences,
   type TLUserStore,
   uniqueId,
   UserRecordType,
   useEditor,
   useTldrawCurrentUser,
+  useValue,
 } from 'tldraw'
 import 'tldraw/tldraw.css'
 import '@tldraw/commenting/commenting.css'
@@ -40,11 +47,13 @@ export function CollaborativeBoard({
   roomId,
   shareToken,
   canComment = true,
+  onShare,
 }: {
   user: DrawlyUser
   roomId: string
   shareToken?: string
   canComment?: boolean
+  onShare?: () => void
 }) {
   const [userPreferences, setUserPreferences] = useState<TLUserPreferences>(() =>
     toUserPreferences(user)
@@ -114,6 +123,18 @@ export function CollaborativeBoard({
     })],
     [canComment]
   )
+  const uiComponents = useMemo(
+    () => onShare
+      ? {
+          ContextMenu: (props: TLUiContextMenuProps) => (
+            <DefaultContextMenu {...props}>
+              <BoardContextMenuContent onShare={onShare} />
+            </DefaultContextMenu>
+          ),
+        }
+      : undefined,
+    [onShare]
+  )
   const syncUrl = `${serverUrl}/connect/${encodeURIComponent(roomId)}${
     shareToken ? `?shareToken=${encodeURIComponent(shareToken)}` : ''
   }`
@@ -129,9 +150,11 @@ export function CollaborativeBoard({
       <Tldraw
         store={store}
         user={currentUser}
+        maxAssetSize={100 * 1024 * 1024}
         licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
         tools={commentingTools}
         overrides={[commentToolOverrides]}
+        components={uiComponents}
         onMount={(editor) => {
           editor.registerExternalAssetHandler('url', unfurlBookmarkUrl)
         }}
@@ -144,20 +167,198 @@ export function CollaborativeBoard({
   )
 }
 
+const boardMenuMessages = defineMessages({
+  shareBoard: { id: 'drawly.share-board', defaultMessage: '分享画板' },
+})
+
+function BoardContextMenuContent({ onShare }: { onShare: () => void }) {
+  const editor = useEditor()
+  const hasSelection = useValue(
+    'drawly context menu selection',
+    () => editor.getSelectedShapeIds().length > 0,
+    [editor]
+  )
+
+  return (
+    <>
+      {!hasSelection && (
+        <TldrawUiMenuGroup id="drawly-board">
+          <TldrawUiMenuItem
+            id="share-board"
+            label={boardMenuMessages.shareBoard.id}
+            icon="share-1"
+            readonlyOk
+            onSelect={onShare}
+          />
+        </TldrawUiMenuGroup>
+      )}
+      <DefaultContextMenuContent />
+    </>
+  )
+}
+
 function CommentsSidebarButton() {
   const editor = useEditor()
   const open = useCommentsSidebarOpen()
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const dragRef = useRef<CommentButtonDragState | null>(null)
+  const suppressClickRef = useRef(false)
+  const [position, setPosition] = useState(readCommentButtonPosition)
+  const [dragging, setDragging] = useState(false)
+
+  useEffect(() => {
+    const keepInsideViewport = () => {
+      setPosition((current) => clampCommentButtonPosition(current, buttonRef.current))
+    }
+    keepInsideViewport()
+    window.addEventListener('resize', keepInsideViewport)
+    return () => window.removeEventListener('resize', keepInsideViewport)
+  }, [])
+
+  function handlePointerDown(event: PointerEvent<HTMLButtonElement>) {
+    event.stopPropagation()
+    if (event.button !== 0) return
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: position.x,
+      originY: position.y,
+      moved: false,
+    }
+  }
+
+  function handlePointerMove(event: PointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+
+    const deltaX = event.clientX - drag.startX
+    const deltaY = event.clientY - drag.startY
+    if (!drag.moved && Math.hypot(deltaX, deltaY) < 4) return
+
+    if (!drag.moved) {
+      drag.moved = true
+      event.currentTarget.setPointerCapture(event.pointerId)
+      setDragging(true)
+    }
+    setPosition(
+      clampCommentButtonPosition(
+        { x: drag.originX + deltaX, y: drag.originY + deltaY },
+        buttonRef.current
+      )
+    )
+  }
+
+  function finishDragging(event: PointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+
+    const finalPosition = drag.moved
+      ? clampCommentButtonPosition(
+          {
+            x: drag.originX + event.clientX - drag.startX,
+            y: drag.originY + event.clientY - drag.startY,
+          },
+          buttonRef.current
+        )
+      : position
+
+    suppressClickRef.current = drag.moved
+    dragRef.current = null
+    setDragging(false)
+    setPosition(finalPosition)
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    if (drag.moved) {
+      window.localStorage.setItem(COMMENT_BUTTON_STORAGE_KEY, JSON.stringify(finalPosition))
+    }
+  }
+
+  function handleClick() {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false
+      return
+    }
+    toggleCommentsSidebar(editor)
+  }
+
   return (
     <EditorPortal>
       <button
-        className={`comments-sidebar-button${open ? ' comments-sidebar-button-active' : ''}`}
-        onPointerDown={(event) => event.stopPropagation()}
-        onClick={() => toggleCommentsSidebar(editor)}
+        ref={buttonRef}
+        className={`comments-sidebar-button${open ? ' comments-sidebar-button-active' : ''}${dragging ? ' comments-sidebar-button-dragging' : ''}`}
+        style={{ left: position.x, top: position.y }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={finishDragging}
+        onPointerCancel={finishDragging}
+        onClick={handleClick}
+        title="拖动可移动，点击打开评论"
       >
         评论
       </button>
     </EditorPortal>
   )
+}
+
+const COMMENT_BUTTON_STORAGE_KEY = 'drawly.comments-button-position'
+const COMMENT_BUTTON_DEFAULT_WIDTH = 54
+const COMMENT_BUTTON_DEFAULT_RIGHT_GAP = 380
+const COMMENT_BUTTON_VIEWPORT_PADDING = 8
+
+interface CommentButtonPosition {
+  x: number
+  y: number
+}
+
+interface CommentButtonDragState {
+  pointerId: number
+  startX: number
+  startY: number
+  originX: number
+  originY: number
+  moved: boolean
+}
+
+function readCommentButtonPosition(): CommentButtonPosition {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(COMMENT_BUTTON_STORAGE_KEY) ?? 'null') as
+      | { x?: unknown; y?: unknown }
+      | null
+    if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
+      return saved as CommentButtonPosition
+    }
+  } catch {
+    // Ignore invalid local preferences and use the default position.
+  }
+
+  return {
+    x: Math.max(
+      COMMENT_BUTTON_VIEWPORT_PADDING,
+      window.innerWidth - COMMENT_BUTTON_DEFAULT_WIDTH - COMMENT_BUTTON_DEFAULT_RIGHT_GAP
+    ),
+    y: 54,
+  }
+}
+
+function clampCommentButtonPosition(
+  position: CommentButtonPosition,
+  element: HTMLButtonElement | null
+): CommentButtonPosition {
+  const width = element?.offsetWidth ?? COMMENT_BUTTON_DEFAULT_WIDTH
+  const height = element?.offsetHeight ?? 30
+  return {
+    x: Math.min(
+      Math.max(COMMENT_BUTTON_VIEWPORT_PADDING, position.x),
+      Math.max(COMMENT_BUTTON_VIEWPORT_PADDING, window.innerWidth - width - COMMENT_BUTTON_VIEWPORT_PADDING)
+    ),
+    y: Math.min(
+      Math.max(COMMENT_BUTTON_VIEWPORT_PADDING, position.y),
+      Math.max(COMMENT_BUTTON_VIEWPORT_PADDING, window.innerHeight - height - COMMENT_BUTTON_VIEWPORT_PADDING)
+    ),
+  }
 }
 
 function ReadOnlyCommentNotice() {

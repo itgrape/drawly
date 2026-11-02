@@ -45,12 +45,16 @@ export function BoardWorkspace() {
 
   return (
     <>
-      <CollaborativeBoard user={user} roomId={boardId} canComment />
+      <CollaborativeBoard
+        user={user}
+        roomId={boardId}
+        canComment
+        onShare={() => setShareOpen(true)}
+      />
       <div className="board-navigation">
         <Link to="/" className="back-to-boards" aria-label="返回画板列表">‹</Link>
         <span title={boardState.title}>{boardState.title}</span>
       </div>
-      <button className="board-share-button" onClick={() => setShareOpen(true)}>分享</button>
       {shareOpen && (
         <ShareDialog
           boardId={boardId}

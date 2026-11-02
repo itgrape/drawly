@@ -45,7 +45,7 @@ start: check-image stop ## 使用已有镜像启动服务
 		-e DRAWLY_ORIGINS=$(ORIGINS) \
 		-v $(DATA_VOLUME):/data \
 		$(IMAGE)
-	@printf '\nDrawly 已启动: http://localhost:%s\n健康检查: http://localhost:%s/health\n' '$(PORT)' '$(PORT)'
+	@printf '\nDrawly 已启动: http://localhost:%s\n局域网访问: http://<本机局域网 IP>:%s\n健康检查: http://localhost:%s/health\n' '$(PORT)' '$(PORT)' '$(PORT)'
 
 stop: check-engine ## 停止并删除运行容器（保留数据）
 	@$(CONTAINER_ENGINE) rm -f $(CONTAINER) >/dev/null 2>&1 || true

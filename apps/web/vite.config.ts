@@ -12,7 +12,9 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    host: '0.0.0.0',
     port: 5757,
+    strictPort: true,
   },
   optimizeDeps: {
     exclude: ['@tldraw/assets'],

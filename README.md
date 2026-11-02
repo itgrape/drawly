@@ -32,7 +32,7 @@ drawly/
 - `@tldraw/sync-core` Node.js 同步服务器
 - SQLite 房间持久化
 - 本地图片和附件存储
-- tldraw 评论、@提及和协作授权扩展包（待业务接入）
+- tldraw 评论、@提及和协作授权扩展包
 - 本地账号注册、登录、退出和个人资料
 - Argon2id 密码哈希与服务端持久化 Session
 
@@ -43,17 +43,15 @@ npm install
 npm run dev
 ```
 
-- 前端：http://localhost:5757
-- 同步/API：http://localhost:5858
+- 本机前端：http://localhost:5757
+- 本机同步/API：http://localhost:5858
+- 局域网前端：`http://<本机局域网 IP>:5757`
+- 局域网同步/API：`http://<本机局域网 IP>:5858`
 - 健康检查：http://localhost:5858/health
 
-默认进入 `welcome` 画板。可通过查询参数切换房间：
-
-```text
-http://localhost:5757/?room=team-one
-```
-
-在两个浏览器窗口中打开同一房间即可测试多人协作。
+前后端默认监听所有网络接口。局域网用户使用运行 Drawly 的电脑 IP 打开前端即可，
+前端会自动连接同一 IP 的同步服务，无需配置 `VITE_SERVER_URL`。请确保系统防火墙允许
+TCP 5757 和 5858 端口。
 
 ## 容器运行
 
@@ -69,7 +67,8 @@ make stop      # 停止服务，保留数据
 ```
 
 容器同时提供前端页面、API 和 WebSocket，只暴露一个端口。默认访问地址为
-http://localhost:8888，健康检查为 http://localhost:8888/health。
+http://localhost:8888，局域网访问地址为 `http://<本机局域网 IP>:8888`，健康检查为
+http://localhost:8888/health。
 端口或外部访问地址可在命令行覆盖：
 
 ```bash

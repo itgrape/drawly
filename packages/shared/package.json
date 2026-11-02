@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./asset": "./src/asset.ts",
     "./auth": "./src/auth.ts",
     "./board": "./src/board.ts",
     "./comment": "./src/comment.ts",

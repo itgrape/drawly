@@ -7,6 +7,7 @@ import { env, isAllowedOrigin } from './config/env'
 import { registerAssetRoutes } from './modules/assets/assets.routes'
 import { registerAuthRoutes } from './modules/auth/auth.routes'
 import { registerBoardRoutes } from './modules/boards/board.routes'
+import { registerCommentRoutes } from './modules/comments/comment.routes'
 import { registerShareRoutes } from './modules/shares/share.routes'
 import { registerSyncRoutes } from './modules/sync/sync.routes'
 import { registerUnfurlRoutes } from './modules/unfurl/unfurl.routes'
@@ -43,6 +44,7 @@ export async function createApp() {
 
   await registerAuthRoutes(app)
   registerBoardRoutes(app)
+  registerCommentRoutes(app)
   registerShareRoutes(app)
   registerSyncRoutes(app)
   registerAssetRoutes(app)

@@ -45,7 +45,7 @@ export function BoardWorkspace() {
 
   return (
     <>
-      <CollaborativeBoard user={user} roomId={boardId} />
+      <CollaborativeBoard user={user} roomId={boardId} canComment />
       <div className="board-navigation">
         <Link to="/" className="back-to-boards" aria-label="返回画板列表">‹</Link>
         <span title={boardState.title}>{boardState.title}</span>

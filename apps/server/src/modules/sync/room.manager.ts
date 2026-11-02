@@ -1,4 +1,6 @@
 import { NodeSqliteWrapper, SQLiteSyncStorage, TLSocketRoom } from '@tldraw/sync-core'
+import { createCommentAuthorizers } from '@tldraw/sync-collaboration'
+import { commentSchemaRecords, createTLSchema } from '@tldraw/tlschema'
 import Database from 'better-sqlite3'
 import { existsSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
@@ -6,6 +8,9 @@ import { env } from '../../config/env'
 
 const roomsDirectory = path.join(env.dataDirectory, 'rooms')
 mkdirSync(roomsDirectory, { recursive: true })
+
+const COMMENT_OBJECT_TYPES = ['comment', 'comment-thread', 'comment-reaction'] as const
+const roomSchema = createTLSchema({ records: commentSchemaRecords })
 
 interface RoomSessionMeta {
   userId: string
@@ -21,9 +26,19 @@ export function makeOrLoadRoom(rawRoomId: string) {
   if (existingRoom && !existingRoom.isClosed()) return existingRoom
 
   const database = new Database(path.join(roomsDirectory, `${roomId}.db`))
-  const storage = new SQLiteSyncStorage({ sql: new NodeSqliteWrapper(database) })
+  const storage = new SQLiteSyncStorage({
+    sql: new NodeSqliteWrapper(database),
+    objectTypes: COMMENT_OBJECT_TYPES,
+  })
   const room = new TLSocketRoom<any, RoomSessionMeta>({
     storage,
+    schema: roomSchema,
+    objectTypes: COMMENT_OBJECT_TYPES,
+    authorizeRecord: {
+      ...createCommentAuthorizers<RoomSessionMeta>({
+        getUserId: (session) => session.meta.userId,
+      }),
+    },
     onSessionRemoved(room, args) {
       if (args.numSessionsRemaining === 0) {
         room.close()

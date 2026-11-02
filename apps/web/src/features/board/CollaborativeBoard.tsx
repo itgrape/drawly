@@ -1,32 +1,50 @@
 import type { DrawlyUser } from '@drawly/shared/auth'
+import type { CommentMember, CommentMembersResponse } from '@drawly/shared/comment'
+import {
+  CanvasComments,
+  CanvasCommentsSidebar,
+  CommentTool,
+  commentToolOverrides,
+  filterMentionMembers,
+  toggleCommentsSidebar,
+  useCommentsSidebarOpen,
+  type CommentingContext,
+  type MentionMember,
+} from '@tldraw/commenting'
 import { useSync } from '@tldraw/sync'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AssetRecordType,
   atom,
+  commentSchemaRecords,
   computed,
   createUserId,
   getHashForString,
   type TLAssetStore,
   type TLBookmarkAsset,
   Tldraw,
+  EditorPortal,
   type TLUserPreferences,
   type TLUserStore,
   uniqueId,
   UserRecordType,
+  useEditor,
   useTldrawCurrentUser,
 } from 'tldraw'
 import 'tldraw/tldraw.css'
-import { serverUrl } from '../../lib/api'
+import '@tldraw/commenting/commenting.css'
+import { apiRequest, serverUrl } from '../../lib/api'
 
 export function CollaborativeBoard({
   user,
   roomId,
   shareToken,
+  canComment = true,
 }: {
   user: DrawlyUser
   roomId: string
   shareToken?: string
+  canComment?: boolean
 }) {
   const [userPreferences, setUserPreferences] = useState<TLUserPreferences>(() =>
     toUserPreferences(user)
@@ -34,6 +52,7 @@ export function CollaborativeBoard({
   const userPreferencesAtom = useRef(
     atom<TLUserPreferences>(`drawly-user-${user.id}`, userPreferences)
   ).current
+  const [commentMembers, setCommentMembers] = useState<CommentMember[]>([toCommentMember(user)])
 
   useEffect(() => {
     const nextPreferences = toUserPreferences(user)
@@ -44,6 +63,21 @@ export function CollaborativeBoard({
   useEffect(() => {
     userPreferencesAtom.set(userPreferences)
   }, [userPreferences, userPreferencesAtom])
+
+  useEffect(() => {
+    let active = true
+    const query = shareToken ? `?shareToken=${encodeURIComponent(shareToken)}` : ''
+    apiRequest<CommentMembersResponse>(
+      `/api/boards/${encodeURIComponent(roomId)}/comment-members${query}`
+    )
+      .then(({ members }) => {
+        if (active) setCommentMembers(ensureCurrentMember(members, user))
+      })
+      .catch(() => {
+        if (active) setCommentMembers([toCommentMember(user)])
+      })
+    return () => { active = false }
+  }, [roomId, shareToken, user])
 
   const users: TLUserStore = useMemo(
     () => ({
@@ -60,6 +94,26 @@ export function CollaborativeBoard({
   )
 
   const currentUser = useTldrawCurrentUser({ userPreferences, setUserPreferences })
+  const commenting = useMemo<CommentingContext>(() => {
+    const members = commentMembers.map((member) => ({
+      ...toMentionMember(member),
+      you: member.id === user.id,
+    }))
+    const byId = new Map(members.map((member) => [member.id, member]))
+    return {
+      currentUserId: canComment ? user.id : null,
+      resolveAuthor: (id) => byId.get(id),
+      getMentionSuggestions: (query) => filterMentionMembers(members, query),
+    }
+  }, [canComment, commentMembers, user.id])
+  const commentingTools = useMemo(
+    () => [CommentTool.configure({
+      history: 'ignore',
+      canComment: () => canComment,
+      components: { ComposerFallback: ReadOnlyCommentNotice },
+    })],
+    [canComment]
+  )
   const syncUrl = `${serverUrl}/connect/${encodeURIComponent(roomId)}${
     shareToken ? `?shareToken=${encodeURIComponent(shareToken)}` : ''
   }`
@@ -67,6 +121,7 @@ export function CollaborativeBoard({
     uri: syncUrl,
     assets: multiplayerAssets,
     users,
+    records: commentSchemaRecords,
   })
 
   return (
@@ -74,12 +129,63 @@ export function CollaborativeBoard({
       <Tldraw
         store={store}
         user={currentUser}
+        licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
+        tools={commentingTools}
+        overrides={[commentToolOverrides]}
         onMount={(editor) => {
           editor.registerExternalAssetHandler('url', unfurlBookmarkUrl)
         }}
-      />
+      >
+        <CanvasComments {...commenting} />
+        <CanvasCommentsSidebar {...commenting} />
+        <CommentsSidebarButton />
+      </Tldraw>
     </div>
   )
+}
+
+function CommentsSidebarButton() {
+  const editor = useEditor()
+  const open = useCommentsSidebarOpen()
+  return (
+    <EditorPortal>
+      <button
+        className={`comments-sidebar-button${open ? ' comments-sidebar-button-active' : ''}`}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={() => toggleCommentsSidebar(editor)}
+      >
+        评论
+      </button>
+    </EditorPortal>
+  )
+}
+
+function ReadOnlyCommentNotice() {
+  return <div className="readonly-comment-notice">只读分享不能发表评论</div>
+}
+
+function toCommentMember(user: DrawlyUser): CommentMember {
+  return {
+    id: user.id,
+    username: user.username,
+    displayName: user.displayName,
+    avatarColor: user.avatarColor,
+  }
+}
+
+function ensureCurrentMember(members: CommentMember[], user: DrawlyUser) {
+  return members.some((member) => member.id === user.id)
+    ? members
+    : [...members, toCommentMember(user)]
+}
+
+function toMentionMember(member: CommentMember): MentionMember {
+  return {
+    id: member.id,
+    name: member.displayName,
+    color: member.avatarColor,
+    secondary: `@${member.username}`,
+  }
 }
 
 const multiplayerAssets: TLAssetStore = {

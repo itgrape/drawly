@@ -117,6 +117,37 @@ body {
   pointer-events: none;
 }
 
+.comments-sidebar-button {
+  position: absolute;
+  z-index: var(--tl-layer-panels);
+  top: 54px;
+  right: 380px;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgb(0 0 0 / 10%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 8%);
+  color: #59657c;
+  font-size: 11px;
+  font-weight: 700;
+  pointer-events: auto;
+}
+
+.comments-sidebar-button:hover,
+.comments-sidebar-button-active {
+  background: #eef2ff;
+  color: #3655d8;
+}
+
+.readonly-comment-notice {
+  max-width: 210px;
+  padding: 10px 12px;
+  color: var(--tl-color-text-3);
+  font-size: 12px;
+  text-align: center;
+}
+
 button,
 input {
   font: inherit;
@@ -898,6 +929,10 @@ button {
   }
 
   .shared-owner-badge {
+    display: none;
+  }
+
+  .comments-sidebar-button {
     display: none;
   }
 

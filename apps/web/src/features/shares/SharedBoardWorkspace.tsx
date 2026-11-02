@@ -42,7 +42,12 @@ export function SharedBoardWorkspace() {
 
   return (
     <>
-      <CollaborativeBoard user={user} roomId={state.boardId} shareToken={token} />
+      <CollaborativeBoard
+        user={user}
+        roomId={state.boardId}
+        shareToken={token}
+        canComment={state.permission === 'edit'}
+      />
       <div className="board-navigation shared-board-navigation">
         <Link to="/" className="back-to-boards" aria-label="返回画板列表">‹</Link>
         <span title={state.title}>{state.title}</span>

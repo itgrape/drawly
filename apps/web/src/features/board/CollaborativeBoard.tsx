@@ -41,6 +41,9 @@ import {
 import 'tldraw/tldraw.css'
 import '@tldraw/commenting/commenting.css'
 import { apiRequest, serverUrl } from '../../lib/api'
+import { DrawlyBookmarkShapeUtil } from './DrawlyBookmarkShapeUtil'
+import { BookmarkMenuItems } from './BookmarkMenuItems'
+import { getBoardLinkPreview } from './boardLinkPreview'
 
 export function CollaborativeBoard({
   user,
@@ -124,15 +127,13 @@ export function CollaborativeBoard({
     [canComment]
   )
   const uiComponents = useMemo(
-    () => onShare
-      ? {
-          ContextMenu: (props: TLUiContextMenuProps) => (
-            <DefaultContextMenu {...props}>
-              <BoardContextMenuContent onShare={onShare} />
-            </DefaultContextMenu>
-          ),
-        }
-      : undefined,
+    () => ({
+      ContextMenu: (props: TLUiContextMenuProps) => (
+        <DefaultContextMenu {...props}>
+          <BoardContextMenuContent onShare={onShare} />
+        </DefaultContextMenu>
+      ),
+    }),
     [onShare]
   )
   const syncUrl = `${serverUrl}/connect/${encodeURIComponent(roomId)}${
@@ -153,6 +154,7 @@ export function CollaborativeBoard({
         maxAssetSize={100 * 1024 * 1024}
         licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
         tools={commentingTools}
+        shapeUtils={[DrawlyBookmarkShapeUtil]}
         overrides={[commentToolOverrides]}
         components={uiComponents}
         onMount={(editor) => {
@@ -171,7 +173,7 @@ const boardMenuMessages = defineMessages({
   shareBoard: { id: 'drawly.share-board', defaultMessage: '分享画板' },
 })
 
-function BoardContextMenuContent({ onShare }: { onShare: () => void }) {
+function BoardContextMenuContent({ onShare }: { onShare?: () => void }) {
   const editor = useEditor()
   const hasSelection = useValue(
     'drawly context menu selection',
@@ -181,7 +183,8 @@ function BoardContextMenuContent({ onShare }: { onShare: () => void }) {
 
   return (
     <>
-      {!hasSelection && (
+      <BookmarkMenuItems />
+      {!hasSelection && onShare && (
         <TldrawUiMenuGroup id="drawly-board">
           <TldrawUiMenuItem
             id="share-board"
@@ -428,6 +431,11 @@ async function unfurlBookmarkUrl({ url }: { url: string }): Promise<TLBookmarkAs
   }
 
   try {
+    const preview = await getBoardLinkPreview(url)
+    if (preview) {
+      Object.assign(asset.props, preview)
+      return asset
+    }
     const response = await fetch(`${serverUrl}/unfurl?url=${encodeURIComponent(url)}`, {
       credentials: 'include',
     })

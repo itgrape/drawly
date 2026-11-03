@@ -959,3 +959,79 @@ button {
     display: none;
   }
 }
+
+.bookmark-title-label {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.bookmark-title-label input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--color-panel-contrast, #cbd5e1);
+  border-radius: 8px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+}
+
+.tl-bookmark__container.drawly-bookmark {
+  box-sizing: border-box;
+}
+
+.drawly-bookmark__copy {
+  flex: 0 0 auto;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Cards without a preview image have a single content region. */
+.drawly-bookmark__copy:only-child {
+  flex: 1;
+  justify-content: center;
+}
+
+.drawly-bookmark__title,
+.drawly-bookmark__url {
+  width: 100%;
+  min-width: 0;
+}
+
+.drawly-bookmark__title .tl-bookmark__heading {
+  padding-bottom: 0;
+  line-height: 1.4;
+  max-height: calc(16px * 1.4 * 2);
+}
+
+.drawly-bookmark__url > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drawly-bookmark__link-icon {
+  flex: 0 0 auto;
+  margin-right: 8px;
+}
+
+.drawly-bookmark__open {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: var(--tl-color-panel);
+  color: var(--tl-color-text-1);
+  pointer-events: all;
+}
+
+.drawly-bookmark__open .drawly-bookmark__link-icon {
+  margin: 0;
+}

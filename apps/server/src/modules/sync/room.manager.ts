@@ -52,6 +52,25 @@ export function makeOrLoadRoom(rawRoomId: string) {
   return room
 }
 
+// Read an inactive room without retaining a database connection or creating a sync session.
+export function getRoomPreviewSnapshot(rawRoomId: string) {
+  const roomId = sanitizeRoomId(rawRoomId)
+  const active = activeRooms.get(roomId)
+  if (active && !active.isClosed()) return active.getCurrentSnapshot()
+  const database = new Database(path.join(roomsDirectory, `${roomId}.db`))
+  const room = new TLSocketRoom({
+    storage: new SQLiteSyncStorage({ sql: new NodeSqliteWrapper(database), objectTypes: COMMENT_OBJECT_TYPES }),
+    schema: roomSchema,
+    objectTypes: COMMENT_OBJECT_TYPES,
+  })
+  try {
+    return room.getCurrentSnapshot()
+  } finally {
+    room.close()
+    database.close()
+  }
+}
+
 export function closeSessionsForShare(rawRoomId: string, shareId: string) {
   const room = activeRooms.get(sanitizeRoomId(rawRoomId))
   if (!room || room.isClosed()) return
